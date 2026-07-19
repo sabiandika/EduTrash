@@ -3,12 +3,13 @@
         "description": "Sampah organik adalah sampah yang berasal dari makhluk hidup dan bisa terurai secara alami, contohnya sisa makanan, kulit buah, dan sayuran.",
         "bin": "Hijau",
         "management": "Bisa dijadikan kompos atau pupuk alami. Kumpulkan di komposter atau lubang biopori di rumah.",
-        "disposal_tip": "Buang di tempat sampah organik/hijau, pisahkan dari sampah anorganik."
+        "disposal_tip": "Buang di tempat sampah organik/hijau, pisahkan dari sampah anorganik.",
+        "how_to": "1. Siapin wadah komposter atau lubang biopori di tanah.\n2. Potong kecil-kecil sisa sampah organiknya supaya lebih cepet terurai.\n3. Campur dengan tanah atau daun kering, jangan cuma sisa makanan doang.\n4. Aduk tiap beberapa hari biar dapet oksigen dan gak bau.\n5. Dalam 2-4 minggu biasanya udah jadi kompos, bisa langsung dipake buat pupuk tanaman."
     },
     "Anorganik": {
         "description": "Sampah anorganik adalah sampah yang sulit atau butuh waktu lama terurai secara alami, contohnya plastik, kaleng, kaca, dan logam. Botol plastik butuh sekitar 450 tahun buat terurai sempurna di alam.",
         "bin": "Kuning",
         "management": "Sebaiknya didaur ulang lewat bank sampah, bukan langsung dibuang. Bersihin dulu dari sisa makanan/minuman dan lepas tutupnya sebelum disetor, biar lebih gampang diproses daur ulangnya.",
-        "disposal_tip": "Setor ke bank sampah terdekat untuk didaur ulang — banyak bank sampah yang bahkan ngasih reward tambahan buat sampah anorganik yang disetor dalam kondisi bersih dan terpilah."
+        "disposal_tip": "Setor ke bank sampah terdekat untuk didaur ulang — banyak bank sampah yang bahkan ngasih nilai tukar/poin buat sampah anorganik yang disetor dalam kondisi bersih dan terpilah."
     }
 }

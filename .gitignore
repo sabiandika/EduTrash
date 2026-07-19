@@ -1,4 +1,8 @@
 __pycache__/
 *.pyc
 dataset/
+<<<<<<< HEAD
 .DS_Store
+=======
+.DS_Store
+>>>>>>> d905fbf739b97371240cd128dbed0eee2d6f0105

@@ -19,15 +19,10 @@ except Exception:
     print("Pastiin file model_sampah.h5 udah ada di folder models/, atau jalanin train.py dulu.")
     raise
 
-
-
-
 with open(LABELS_PATH, encoding="utf-8") as f:
-    text = f.read()
+    labels_info = json.load(f)
 
-print(text)
-
-labels_info = json.loads(text)
+print("Model siap.")
 
 
 @app.route("/predict", methods=["POST"])
@@ -66,7 +61,8 @@ def predict():
             "description": info.get("description", ""),
             "bin": info.get("bin", ""),
             "management": info.get("management", ""),
-            "disposal_tip": info.get("disposal_tip", "")
+            "disposal_tip": info.get("disposal_tip", ""),
+            "how_to": info.get("how_to", "")
         })
 
     except Exception as e:
