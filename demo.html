@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Demo Deteksi Sampah (Kamera)</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      background: #111;
+      color: #eee;
+      padding: 20px;
+    }
+
+    video {
+      border-radius: 12px;
+      max-width: 100%;
+      background: #000;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      background: #4caf50;
+      color: white;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    #status {
+      color: #999;
+      font-size: 14px;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 12px;
+      background: #222;
+      min-height: 40px;
+    }
+
+    .organik {
+      border: 2px solid #4caf50;
+    }
+
+    .anorganik {
+      border: 2px solid #ff9800;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Demo Deteksi Sampah</h2>
+  <video id="video" width="400" height="300" autoplay muted playsinline></video>
+  <br>
+  <button id="btnStart">Buka Kamera & Mulai Deteksi</button>
+  <button id="btnStop" style="display:none; background:#f44336;">Berhenti</button>
+  <div id="status"></div>
+  <div id="result">Klik tombol di atas buat mulai.</div>
+
+  <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
+
+  <script>
+    const API_URL = "http://localhost:5000/predict"; // ganti kalau port/host beda
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("canvas");
+    const btnStart = document.getElementById("btnStart");
+    const btnStop = document.getElementById("btnStop");
+    const resultDiv = document.getElementById("result");
+    const statusDiv = document.getElementById("status");
+
+    let stream = null;
+    let intervalId = null;
+    let isChecking = false;
+
+    btnStart.addEventListener("click", async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        btnStart.style.display = "none";
+        btnStop.style.display = "inline-block";
+        resultDiv.className = "";
+        resultDiv.textContent = "Arahin kamera ke sampah...";
+        // ambil 1 frame tiap 2 detik & cek ke API, bukan tiap frame video (30fps)
+        // biar gak nge-spam server
+        intervalId = setInterval(captureAndDetect, 2000);
+      } catch (err) {
+        resultDiv.textContent = "Gagal buka kamera: " + err.message;
+      }
+    });
+
+    btnStop.addEventListener("click", stopDetection);
+
+    function stopDetection() {
+      if (intervalId) clearInterval(intervalId);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      btnStart.style.display = "inline-block";
+      btnStop.style.display = "none";
+      statusDiv.textContent = "";
+    }
+
+    function captureAndDetect() {
+      if (isChecking) return; // skip kalau request sebelumnya belum selesai
+      isChecking = true;
+      statusDiv.textContent = "Mendeteksi...";
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(blob => {
+        const formData = new FormData();
+        formData.append("image", blob, "capture.jpg");
+
+        fetch(API_URL, { method: "POST", body: formData })
+          .then(res => res.json())
+          .then(data => {
+            isChecking = false;
+            statusDiv.textContent = "";
+
+            if (data.error) {
+              statusDiv.textContent = "Error: " + data.error;
+              return;
+            }
+            if (!data.detected) {
+              return; // belum yakin, lanjut coba lagi 2 detik berikutnya
+            }
+
+            // ketemu yang confident -> stop auto-capture, tampilin hasil
+            clearInterval(intervalId);
+            resultDiv.className = data.prediction === "Organik" ? "organik" : "anorganik";
+            resultDiv.innerHTML = `
+              <h3>${data.prediction} (${data.confidence}%)</h3>
+              <p>${data.description}</p>
+              <p><b>Tong:</b> ${data.bin}</p>
+              <p><b>Pengelolaan:</b> ${data.management}</p>
+            `;
+          })
+          .catch(err => {
+            isChecking = false;
+            statusDiv.textContent = "Gagal konek ke server: " + err.message;
+          });
+      }, "image/jpeg", 0.9);
+    }
+  </script>
+</body>
+
+</html>
