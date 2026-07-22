@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EduTrash - Beranda</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="levels.js"></script>
+</head>
+
+<body>
+  <div class="header">
+    <h1>🌱 EduTrash</h1>
+  </div>
+
+  <div class="container">
+    <div class="user-card">
+      <div class="avatar" id="avatarInitial">?</div>
+      <div style="flex:1;">
+        <div class="greeting">Halo, <span id="userName">Pengguna</span></div>
+        <div class="points-badge">⭐ <span id="pointsValue">-</span> Poin — <span id="levelBadge"></span></div>
+        <div id="progressBar"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Tau gak?</h3>
+      <p>Botol plastik butuh sekitar 450 tahun buat terurai sempurna di alam.</p>
+    </div>
+    <div class="card">
+      <h3>Tau gak?</h3>
+      <p>Sisa makanan yang dikompos bisa jadi pupuk siap pakai dalam 2-4 minggu doang.</p>
+    </div>
+    <div class="card">
+      <h3>Yuk Mulai</h3>
+      <p>Tekan tombol kamera di tengah bawah buat langsung deteksi sampah kamu & dapetin poin.</p>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="beranda.html" class="nav-item active"><span class="icon">🏠</span><span>Beranda</span></a>
+    <a href="edukasi.html" class="nav-item"><span class="icon">📖</span><span>Edukasi</span></a>
+    <a href="scan_sampah.html" class="nav-item nav-fab"><span class="icon">📷</span></a>
+    <a href="riwayat.html" class="nav-item"><span class="icon">🕐</span><span>Riwayat</span></a>
+    <a href="profil.html" class="nav-item"><span class="icon">👤</span><span>Profil</span></a>
+  </nav>
+
+  <script>
+    // `supabase` dan `authReady` udah disiapin sama auth-guard.js,
+    // gak perlu createClient() atau getSession() manual lagi di sini.
+    async function init() {
+      const user = await authReady;
+      if (!user) return; // auth-guard.js udah otomatis redirect ke login.html
+
+      const email = user.email;
+      document.getElementById("userName").textContent = email.split("@")[0];
+      document.getElementById("avatarInitial").textContent = email[0].toUpperCase();
+
+      const { data: profile } = await supabase
+        .from("profiles").select("points").eq("id", user.id).single();
+      const points = profile ? profile.points : 0;
+
+      document.getElementById("pointsValue").textContent = points;
+      document.getElementById("levelBadge").textContent = renderLevelBadgeHTML(points);
+      document.getElementById("progressBar").innerHTML = renderProgressBarHTML(points);
+    }
+
+    init();
+  </script>
+</body>
+
+</html>

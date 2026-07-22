@@ -1,0 +1,79 @@
+* { box-sizing: border-box; }
+body {
+  font-family: sans-serif;
+  background: #0d0d0d;
+  color: #eee;
+  margin: 0;
+  padding-bottom: 84px; /* ruang buat bottom nav biar konten gak ketutup */
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+.header h1 { font-size: 20px; margin: 0; color: #4caf50; }
+
+.container { padding: 0 16px; max-width: 480px; margin: 0 auto; }
+
+.user-card {
+  background: linear-gradient(135deg, #1b3a1f, #14261a);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: #4caf50; display: flex; align-items: center; justify-content: center;
+  font-weight: bold; font-size: 18px; flex-shrink: 0;
+}
+.greeting { font-size: 14px; color: #ccc; }
+.points-badge { margin-top: 4px; font-weight: bold; font-size: 18px; color: #ffd54f; }
+
+.card {
+  background: #1a1a1a;
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.card h3 { margin: 0 0 8px; font-size: 15px; color: #4caf50; }
+.card p { margin: 0; font-size: 14px; color: #ccc; line-height: 1.5; }
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: #161616;
+  padding: 10px 0 14px;
+  border-top: 1px solid #2a2a2a;
+  margin: 0 auto;
+}
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #777;
+  text-decoration: none;
+  font-size: 11px;
+  gap: 3px;
+}
+.nav-item.active { color: #4caf50; }
+.nav-item .icon { font-size: 21px; }
+
+.nav-fab {
+  background: #4caf50;
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-top: -30px;
+  box-shadow: 0 4px 14px rgba(76,175,80,0.45);
+}
+.nav-fab .icon { font-size: 24px; }

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EduTrash - Profil</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="auth-guard.js"></script>
+  <script src="levels.js"></script>
+</head>
+
+<body>
+  <div class="header">
+    <h1>🌱 EduTrash</h1>
+  </div>
+
+  <div class="container">
+    <div class="user-card">
+      <div class="avatar" id="avatarInitial">?</div>
+      <div>
+        <div class="greeting" id="userEmail">-</div>
+        <div class="points-badge">⭐ <span id="pointsValue">-</span> Poin</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 id="levelBadgeTitle">-</h3>
+      <div id="progressBar"></div>
+    </div>
+
+    <div class="card">
+      <h3>Roadmap Badge</h3>
+      <div id="levelRoadmap"></div>
+    </div>
+
+    <div class="card">
+      <h3>Tentang Poin</h3>
+      <p>Kamu dapet +10 poin tiap berhasil deteksi sampah. Makin sering scan, makin banyak poinnya.</p>
+    </div>
+
+    <button id="btnLogout" style="width:100%; padding:14px; border:none; border-radius:10px;
+            background:#f44336; color:white; font-size:15px; margin-top:8px; cursor:pointer;">Keluar</button>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="beranda.html" class="nav-item"><span class="icon">🏠</span><span>Beranda</span></a>
+    <a href="edukasi.html" class="nav-item"><span class="icon">📖</span><span>Edukasi</span></a>
+    <a href="scan_sampah.html" class="nav-item nav-fab"><span class="icon">📷</span></a>
+    <a href="riwayat.html" class="nav-item"><span class="icon">🕐</span><span>Riwayat</span></a>
+    <a href="profil.html" class="nav-item active"><span class="icon">👤</span><span>Profil</span></a>
+  </nav>
+
+  <script>
+    // `supabase`, `authReady`, dan fungsi `logout()` udah disiapin
+    // sama auth-guard.js, gak perlu createClient()/signOut() manual lagi.
+    async function init() {
+      const user = await authReady;
+      if (!user) return; // auth-guard.js udah otomatis redirect ke login.html
+
+      document.getElementById("userEmail").textContent = user.email;
+      document.getElementById("avatarInitial").textContent = user.email[0].toUpperCase();
+
+      const { data: profile } = await supabase
+        .from("profiles").select("points").eq("id", user.id).single();
+      const points = profile ? profile.points : 0;
+
+      document.getElementById("pointsValue").textContent = points;
+      document.getElementById("levelBadgeTitle").textContent = renderLevelBadgeHTML(points);
+      document.getElementById("progressBar").innerHTML = renderProgressBarHTML(points);
+      document.getElementById("levelRoadmap").innerHTML = renderRoadmapHTML(points);
+    }
+
+    document.getElementById("btnLogout").addEventListener("click", logout);
+
+    init();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Demo Deteksi Sampah</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <style>
+    #scanRoot {
+      font-family: sans-serif;
+      text-align: center;
+      color: #eee;
+      /* kasih jarak bawah biar konten gak ketutupan bottom-nav fixed */
+      padding-bottom: 110px;
+    }
+
+    #scanRoot video,
+    #scanRoot #previewImg {
+      display: block;
+      margin: 0 auto;
+      border-radius: 12px;
+      max-width: 100%;
+      width: 400px;
+      height: 300px;
+      background: #000;
+      object-fit: cover;
+    }
+
+    #scanRoot button {
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: none;
+      background: #4caf50;
+      color: white;
+      cursor: pointer;
+      margin: 6px;
+      position: relative;
+      z-index: 5;
+      /* mastiin tombol selalu di atas elemen lain, gak ketiban apapun */
+    }
+
+    #scanRoot button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    #scanRoot #btnUpload {
+      background: #2196f3;
+    }
+
+    #scanRoot #btnMaps {
+      background: #ff9800;
+    }
+
+    #scanRoot #status {
+      color: #999;
+      font-size: 14px;
+      margin-top: 8px;
+      min-height: 18px;
+    }
+
+    #scanRoot #result {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 12px;
+      background: #222;
+      min-height: 40px;
+      text-align: left;
+      max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    #scanRoot #result h3,
+    #scanRoot #result>p {
+      text-align: center;
+    }
+
+    #scanRoot .organik {
+      border: 2px solid #4caf50;
+    }
+
+    #scanRoot .anorganik {
+      border: 2px solid #ff9800;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 100;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="header">
+    <h1>🌱 EduTrash</h1>
+  </div>
+
+  <div class="container" id="scanRoot">
+
+    <video id="video" width="400" height="300" autoplay muted playsinline></video>
+    <img id="previewImg" width="400" height="300" style="display:none;">
+
+    <br>
+    <button id="btnStart">Buka Kamera & Mulai Deteksi</button>
+    <button id="btnStop" style="display:none; background:#f44336;">Berhenti</button>
+    <button id="btnUpload">Upload Foto Sampah</button>
+    <input type="file" id="fileInput" accept="image/*" style="display:none;">
+    <div id="status"></div>
+    <div id="result">Klik "Buka Kamera" atau "Upload Foto" buat mulai.</div>
+
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="beranda.html" class="nav-item"><span class="icon">🏠</span><span>Beranda</span></a>
+    <a href="edukasi.html" class="nav-item"><span class="icon">📖</span><span>Edukasi</span></a>
+    <a href="scan_sampah.html" class="nav-item nav-fab active"><span class="icon">📷</span></a>
+    <a href="riwayat.html" class="nav-item"><span class="icon">🕐</span><span>Riwayat</span></a>
+    <a href="profil.html" class="nav-item"><span class="icon">👤</span><span>Profil</span></a>
+  </nav>
+
+  <canvas id="canvas" width="400" height="300" style="display:none;"></canvas>
+
+  <script>
+    const API_URL = "http://localhost:5000/predict"; // ganti kalau port/host beda
+    function initSupabase() {
+      try {
+        if (window.supabase) {
+          supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
+      } catch (e) {
+        console.warn("Supabase gagal diinisialisasi, fitur poin dinonaktifkan:", e);
+      }
+    }
+    window.addEventListener("load", initSupabase);
+
+    async function recordDetection(data) {
+      if (!supabase) return; // Supabase belum siap, skip aja (gak nge-block fitur utama)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const { data: profile } = await supabase
+          .from("profiles").select("points").eq("id", session.user.id).single();
+        const newPoints = (profile ? profile.points : 0) + POINTS_PER_DETECTION;
+        await supabase.from("profiles").update({ points: newPoints }).eq("id", session.user.id);
+
+        await supabase.from("detections").insert({
+          user_id: session.user.id,
+          prediction: data.prediction,
+          confidence: data.confidence
+        });
+      } catch (e) {
+        console.warn("Gagal nyimpen poin/riwayat:", e);
+      }
+    }
+
+    const video = document.getElementById("video");
+    const previewImg = document.getElementById("previewImg");
+    const canvas = document.getElementById("canvas");
+    const btnStart = document.getElementById("btnStart");
+    const btnStop = document.getElementById("btnStop");
+    const btnUpload = document.getElementById("btnUpload");
+    const fileInput = document.getElementById("fileInput");
+    const resultDiv = document.getElementById("result");
+    const statusDiv = document.getElementById("status");
+
+    let stream = null;
+    let intervalId = null;
+    let isChecking = false;
+    let currentPreviewURL = null;
+
+    //KAMERA (auto-detect tiap 2 detik)
+    btnStart.addEventListener("click", async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+        video.style.display = "block";
+        previewImg.style.display = "none"; // balik ke mode kamera, sembunyiin preview foto
+        btnStart.style.display = "none";
+        btnStop.style.display = "inline-block";
+        resultDiv.className = "";
+        resultDiv.textContent = "Arahin kamera ke sampah...";
+        intervalId = setInterval(captureFromCamera, 2000);
+      } catch (err) {
+        resultDiv.textContent = "Gagal buka kamera: " + err.message;
+      }
+    });
+
+    btnStop.addEventListener("click", stopDetection);
+
+    function stopDetection() {
+      if (intervalId) clearInterval(intervalId);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      btnStart.style.display = "inline-block";
+      btnStop.style.display = "none";
+      statusDiv.textContent = "";
+    }
+
+    function captureFromCamera() {
+      if (isChecking) return; // skip kalau request sebelumnya belum kelar
+      isChecking = true;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(blob => {
+        predict(blob, "capture.jpg", data => {
+          isChecking = false;
+          if (data && data.detected) {
+            clearInterval(intervalId); // ketemu yang yakin -> stop auto-capture
+            renderResult(data);
+          }
+          // belum yakin / error -> diem aja, interval lanjut nyoba 2 detik lagi
+        });
+      }, "image/jpeg", 0.9);
+    }
+
+    //UPLOAD FOTO (dengan preview)
+    btnUpload.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      stopDetection(); // matiin kamera dulu kalau lagi nyala, biar gak bentrok
+
+      // tampilin preview foto yang dipilih, biar user yakin ini foto yang bener
+      if (currentPreviewURL) URL.revokeObjectURL(currentPreviewURL);
+      currentPreviewURL = URL.createObjectURL(file);
+      previewImg.src = currentPreviewURL;
+      previewImg.style.display = "block";
+      video.style.display = "none";
+
+      resultDiv.className = "";
+      resultDiv.textContent = "";
+
+      predict(file, file.name, data => {
+        fileInput.value = ""; // reset biar bisa pilih file yang sama lagi kalau perlu
+        if (!data) return; // koneksi gagal, pesan error udah kepampang di status
+        if (data.error) {
+          resultDiv.textContent = "Error: " + data.error;
+        } else if (!data.detected) {
+          resultDiv.textContent = data.message;
+        } else {
+          renderResult(data);
+        }
+      });
+    });
+
+    // ================= FUNGSI UTAMA: KIRIM GAMBAR KE API =================
+    // dipake bareng-bareng flow kamera & upload, biar gak ada kode dobel
+    function predict(fileOrBlob, filename, onResult) {
+      statusDiv.textContent = "Mendeteksi...";
+
+      const formData = new FormData();
+      formData.append("image", fileOrBlob, filename);
+
+      fetch(API_URL, { method: "POST", body: formData })
+        .then(res => res.json())
+        .then(data => {
+          statusDiv.textContent = "";
+          onResult(data);
+        })
+        .catch(err => {
+          statusDiv.textContent = "Gagal konek ke server: " + err.message;
+          onResult(null);
+        });
+    }
+
+    function renderResult(data) {
+      recordDetection(data); // nambah poin + catet ke riwayat (kalau user login)
+
+      const isOrganik = data.prediction.toLowerCase() === "organik";
+      resultDiv.className = isOrganik ? "organik" : "anorganik";
+
+      const extraButton = isOrganik
+        ? `<button id="btnKompos">Cara Bikin Kompos Sendiri</button>
+            <div id="komposSteps" style="display:none; text-align:left; margin-top:12px;
+                background:#1a1a1a; padding:12px; border-radius:8px; white-space:pre-line;"></div>`
+        : `<button id="btnMaps">Cari Bank Sampah Terdekat</button>`;
+
+      resultDiv.innerHTML = `
+        <h3>${data.prediction} (${data.confidence}%)</h3>
+        <p>${data.description}</p>
+        <p><b>Tong:</b> ${data.bin}</p>
+        <p><b>Pengelolaan:</b> ${data.management}</p>
+        ${extraButton}
+      `;
+
+      if (!isOrganik) {
+        document.getElementById("btnMaps").addEventListener("click", openBankSampahMaps);
+      } else {
+        const btnKompos = document.getElementById("btnKompos");
+        const komposSteps = document.getElementById("komposSteps");
+        komposSteps.textContent = data.how_to || "Langkah kompos belum tersedia.";
+        btnKompos.addEventListener("click", () => {
+          const isHidden = komposSteps.style.display === "none";
+          komposSteps.style.display = isHidden ? "block" : "none";
+          btnKompos.textContent = isHidden ? "Sembunyikan Caranya" : "Cara Bikin Kompos Sendiri";
+        });
+      }
+    }
+
+    // ================= BUKA GOOGLE MAPS (tanpa API key) =================
+    function openBankSampahMaps() {
+      const query = encodeURIComponent("bank sampah terdekat");
+      const fallbackUrl = `https://www.google.com/maps/search/?api=1&query=${query}`;
+
+      if (!navigator.geolocation) {
+        window.open(fallbackUrl, "_blank");
+        return;
+      }
+
+      // coba pake lokasi browser biar hasil pencarian lebih akurat
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const { latitude, longitude } = position.coords;
+          const url = `https://www.google.com/maps/search/${query}/@${latitude},${longitude},15z`;
+          window.open(url, "_blank");
+        },
+        () => {
+          // user nolak izin lokasi / gagal -> tetep buka pencarian biasa
+          window.open(fallbackUrl, "_blank");
+        },
+        { timeout: 5000 }
+      );
+    }
+  </script>
+</body>
+
+</html>

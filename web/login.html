@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Masuk - EduTrash</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+    }
+
+    .auth-box {
+      max-width: 360px;
+      margin: 60px auto;
+      padding: 24px;
+      background: #1a1a1a;
+      border-radius: 12px;
+    }
+
+    .auth-box h2 {
+      text-align: center;
+      margin-top: 0;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+    }
+
+    .tabs button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      background: #222;
+      color: #999;
+      cursor: pointer;
+      font-size: 15px;
+    }
+
+    .tabs button.active {
+      background: #4caf50;
+      color: white;
+      border-radius: 6px;
+    }
+
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #111;
+      color: #eee;
+      font-size: 15px;
+    }
+
+    button[type="submit"] {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background: #4caf50;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button[type="submit"]:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+
+    #message {
+      margin-top: 14px;
+      font-size: 14px;
+      text-align: center;
+      min-height: 18px;
+    }
+
+    #message.error {
+      color: #f44336;
+    }
+
+    #message.success {
+      color: #4caf50;
+    }
+
+    .field-name {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="auth-box">
+    <h2>🌱 EduTrash</h2>
+
+    <div class="tabs">
+      <button id="tabLogin" class="active">Masuk</button>
+      <button id="tabRegister">Daftar</button>
+    </div>
+
+    <form id="authForm">
+      <input type="text" id="fullName" class="field-name" placeholder="Nama lengkap" autocomplete="name">
+      <input type="email" id="email" placeholder="Email" required autocomplete="email">
+      <input type="password" id="password" placeholder="Password" required autocomplete="current-password"
+        minlength="6">
+      <button type="submit" id="submitBtn">Masuk</button>
+    </form>
+
+    <div id="message"></div>
+  </div>
+
+  <script>
+    // Guard sederhana: kalau config.js belum diisi/belum di-copy, kasih tau jelas
+    if (typeof SUPABASE_URL === "undefined" || SUPABASE_URL.includes("xxxxx")) {
+      document.querySelector(".auth-box").innerHTML =
+        "<p style='color:#f44336'>config.js belum di-setup. Copy config.example.js jadi config.js dan isi kredensial Supabase lu dulu.</p>";
+      throw new Error("Supabase config belum diisi");
+    }
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const tabLogin = document.getElementById("tabLogin");
+    const tabRegister = document.getElementById("tabRegister");
+    const fullNameField = document.getElementById("fullName");
+    const emailField = document.getElementById("email");
+    const passwordField = document.getElementById("password");
+    const submitBtn = document.getElementById("submitBtn");
+    const messageDiv = document.getElementById("message");
+    const authForm = document.getElementById("authForm");
+
+    let mode = "login"; // "login" | "register"
+
+    // Kalau user udah login sebelumnya, langsung lempar ke beranda
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        window.location.href = "beranda.html";
+      }
+    });
+
+    function setMode(newMode) {
+      mode = newMode;
+      messageDiv.textContent = "";
+      messageDiv.className = "";
+
+      if (mode === "login") {
+        tabLogin.classList.add("active");
+        tabRegister.classList.remove("active");
+        fullNameField.style.display = "none";
+        fullNameField.required = false;
+        passwordField.autocomplete = "current-password";
+        submitBtn.textContent = "Masuk";
+      } else {
+        tabRegister.classList.add("active");
+        tabLogin.classList.remove("active");
+        fullNameField.style.display = "block";
+        fullNameField.required = true;
+        passwordField.autocomplete = "new-password";
+        submitBtn.textContent = "Daftar";
+      }
+    }
+
+    tabLogin.addEventListener("click", () => setMode("login"));
+    tabRegister.addEventListener("click", () => setMode("register"));
+
+    // Kalau dateng dari link "Daftar Sekarang" (login.html?mode=register),
+    // langsung buka di tab Daftar biar gak perlu klik lagi.
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("mode") === "register") {
+      setMode("register");
+    }
+
+    authForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      submitBtn.disabled = true;
+      messageDiv.className = "";
+      messageDiv.textContent = mode === "login" ? "Lagi masuk..." : "Lagi daftar...";
+
+      const email = emailField.value.trim();
+      const password = passwordField.value;
+
+      try {
+        if (mode === "register") {
+          const fullName = fullNameField.value.trim();
+          const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: fullName } }
+          });
+          if (error) throw error;
+
+          messageDiv.className = "success";
+          messageDiv.textContent = "Daftar berhasil! Kalau konfirmasi email masih aktif, cek inbox dulu sebelum masuk.";
+          setMode("login");
+        } else {
+          const { error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+
+          window.location.href = "beranda.html";
+        }
+      } catch (err) {
+        messageDiv.className = "error";
+        messageDiv.textContent = err.message || "Terjadi kesalahan, coba lagi.";
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+
+</html>
