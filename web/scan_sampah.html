@@ -187,7 +187,7 @@
         btnStop.style.display = "inline-block";
         resultDiv.className = "";
         resultDiv.textContent = "Arahin kamera ke sampah...";
-        intervalId = setInterval(captureFromCamera, 2000);
+        intervalId = setInterval(captureFromCamera, 4000);
       } catch (err) {
         resultDiv.textContent = "Gagal buka kamera: " + err.message;
       }
@@ -215,7 +215,6 @@
         predict(blob, "capture.jpg", data => {
           isChecking = false;
           if (data && data.detected) {
-            clearInterval(intervalId); // ketemu yang yakin -> stop auto-capture
             renderResult(data);
           }
           // belum yakin / error -> diem aja, interval lanjut nyoba 2 detik lagi
@@ -257,7 +256,8 @@
 
     // ================= FUNGSI UTAMA: KIRIM GAMBAR KE API =================
     // dipake bareng-bareng flow kamera & upload, biar gak ada kode dobel
-    function predict(fileOrBlob, filename, onResult) {
+    async function predict(fileOrBlob, filename, onResult) {
+
       statusDiv.textContent = "Mendeteksi...";
 
       const formData = new FormData();
@@ -286,6 +286,35 @@
             <div id="komposSteps" style="display:none; text-align:left; margin-top:12px;
                 background:#1a1a1a; padding:12px; border-radius:8px; white-space:pre-line;"></div>`
         : `<button id="btnMaps">Cari Bank Sampah Terdekat</button>`;
+
+
+      // data.points_awarded / data.on_cooldown / data.total_points / data.level_*
+      // dikirim langsung sama backend (app.py) yang udah verifikasi & itung
+      // poin+level+cooldown sendiri di server.
+      let pointsSection;
+      if (data.points_awarded) {
+        pointsSection = `
+          <div style="margin-top:16px; padding:14px; background:#1a1a1a; border-radius:10px; text-align:center;">
+            <p style="margin:0; color:#4caf50; font-size:15px;">🎉 +10 Poin! Total: ${data.total_points} poin</p>
+            <p style="margin:6px 0 0; font-size:14px;">${data.level_emoji} Level kamu: <b>${data.level_name}</b></p>
+            ${data.leveled_up ? `<p style="margin:6px 0 0; color:#ffd54f; font-weight:bold;">✨ Naik level! Selamat jadi ${data.level_name}!</p>` : ""}
+          </div>
+        `;
+      } else if (data.on_cooldown) {
+        pointsSection = `
+          <div style="margin-top:16px; padding:14px; background:#1a1a1a; border-radius:10px; text-align:center;">
+            <p style="margin:0; color:#999; font-size:14px;">⏳ Udah dapet poin baru-baru ini. Coba scan barang lain dalam ${data.cooldown_remaining} detik lagi.</p>
+          </div>
+        `;
+      } else {
+        pointsSection = `
+          <div style="margin-top:16px; padding:16px; background:#1a1a1a; border-radius:10px; text-align:center;">
+            <p style="margin:0 0 10px; font-size:15px;">🌟 Mari kumpulkan poin, jadi <b>Pahlawan Sampah</b>!</p>
+            <a href="login.html?mode=register" style="display:inline-block; padding:10px 18px; background:#4caf50; color:white; border-radius:8px; text-decoration:none; margin:4px; font-size:14px;">Daftar Sekarang</a>
+            <a href="login.html" style="display:inline-block; padding:10px 18px; background:#2196f3; color:white; border-radius:8px; text-decoration:none; margin:4px; font-size:14px;">Sudah Punya Akun? Masuk</a>
+          </div>
+        `;
+      }
 
       resultDiv.innerHTML = `
         <h3>${data.prediction} (${data.confidence}%)</h3>
