@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
-  <script src="auth-guard.js"></script>
   <script src="levels.js"></script>
 </head>
 
@@ -21,8 +20,8 @@
     <div class="user-card">
       <div class="avatar" id="avatarInitial">?</div>
       <div>
-        <div class="greeting" id="userEmail">-</div>
-        <div class="points-badge">⭐ <span id="pointsValue">-</span> Poin</div>
+        <div class="greeting" id="userName" style="font-size: 16px; font-weight: bold; color: white;">Memuat...</div>
+        <div class="points-badge">⭐ <span id="pointsValue">0</span> Poin</div>
       </div>
     </div>
 
@@ -36,17 +35,12 @@
       <div id="levelRoadmap"></div>
     </div>
 
-    <div class="card">
-      <h3>Tentang Poin</h3>
-      <p>Kamu dapet +10 poin tiap berhasil deteksi sampah. Makin sering scan, makin banyak poinnya.</p>
-    </div>
+    <button id="btnLogout"
+      style="width:100%; padding:14px; border:none; border-radius:10px; background:#f44336; color:white; font-size:15px; margin-top:8px; cursor:pointer;">Keluar</button>
 
-    <button id="btnLogout" style="width:100%; padding:14px; border:none; border-radius:10px;
-            background:#f44336; color:white; font-size:15px; margin-top:8px; cursor:pointer;">Keluar</button>
-
-    <a href="login.html" style="display:block; width:100%; box-sizing:border-box; padding:14px;
-       border-radius:10px; background:#2196f3; color:white; font-size:15px; margin-top:8px;
-       text-align:center; text-decoration:none;">Masuk / Ganti Akun</a>
+    <a href="login.html" id="btnMasuk"
+      style="display:none; width:100%; box-sizing:border-box; padding:14px; border-radius:10px; background:#2196f3; color:white; font-size:15px; margin-top:8px; text-align:center; text-decoration:none;">Masuk
+      / Ganti Akun</a>
   </div>
 
   <nav class="bottom-nav">
@@ -58,26 +52,49 @@
   </nav>
 
   <script>
-    // `supabase`, `authReady`, dan fungsi `logout()` udah disiapin
-    // sama auth-guard.js, gak perlu createClient()/signOut() manual lagi.
+    const keyToUse = typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY : SUPABASE_ANON_KEY;
+    const supabase = window.supabase.createClient(SUPABASE_URL, keyToUse);
+
     async function init() {
-      const user = await authReady;
-      if (!user) return; // auth-guard.js udah otomatis redirect ke login.html
+      // 1. Cek apakah ada user yang login
+      const { data: { session } } = await supabase.auth.getSession();
 
-      document.getElementById("userEmail").textContent = user.email;
-      document.getElementById("avatarInitial").textContent = user.email[0].toUpperCase();
+      if (!session) {
+        // Kalau nggak ada sesi, lempar balik ke login
+        window.location.href = "login.html";
+        return;
+      }
 
-      const { data: profile } = await supabase
-        .from("profiles").select("points").eq("id", user.id).single();
+      const user = session.user;
+
+      // 2. Tarik data dari database tabel profiles
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("full_name, points")
+        .eq("id", user.id)
+        .single();
+
       const points = profile ? profile.points : 0;
+      const fullName = (profile && profile.full_name) ? profile.full_name : user.email;
 
+      // 3. Tampilkan ke layar
+      document.getElementById("userName").textContent = fullName;
+      document.getElementById("avatarInitial").textContent = fullName.charAt(0).toUpperCase();
       document.getElementById("pointsValue").textContent = points;
-      document.getElementById("levelBadgeTitle").textContent = renderLevelBadgeHTML(points);
-      document.getElementById("progressBar").innerHTML = renderProgressBarHTML(points);
-      document.getElementById("levelRoadmap").innerHTML = renderRoadmapHTML(points);
+
+      // Tampilkan Badge
+      if (typeof renderLevelBadgeHTML === 'function') {
+        document.getElementById("levelBadgeTitle").textContent = renderLevelBadgeHTML(points);
+        document.getElementById("progressBar").innerHTML = renderProgressBarHTML(points);
+        document.getElementById("levelRoadmap").innerHTML = renderRoadmapHTML(points);
+      }
     }
 
-    document.getElementById("btnLogout").addEventListener("click", logout);
+    // Fungsi Log Out
+    document.getElementById("btnLogout").addEventListener("click", async () => {
+      await supabase.auth.signOut();
+      window.location.href = "login.html";
+    });
 
     init();
   </script>

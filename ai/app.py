@@ -11,27 +11,17 @@ import tensorflow as tf
 from config import MODEL_PATH, LABELS_PATH, CONF_THRESHOLD, CLASS_NAMES
 from utils import preprocess_frame, read_image_file
 
-# ================= ENV VARS =================
-# Lokal: dibaca dari file .env (lihat .env.example)
-# Production (Render dll): dibaca dari Environment Variables di dashboard hosting,
-# load_dotenv() otomatis gak ngapa-ngapain kalau file .env-nya emang gak ada.
+
 load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
-ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN")  # contoh: https://edutrash.vercel.app
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN") 
 POINTS_PER_DETECTION = 10
 
-# Kamera scan sekarang jalan terus-menerus (gak berhenti otomatis pas
-# ketemu 1 deteksi), jadi kita batesin poin CUMA bisa didapet sekali
-# tiap COOLDOWN_SECONDS, biar orang gak bisa curang cuma diemin kamera
-# ke 1 barang buat farming poin. Ini dicek dari SERVER (tabel `detections`),
-# bukan dari frontend, jadi gak bisa diakalin.
 POINTS_COOLDOWN_SECONDS = 60
 
-# ================= LEVEL / BADGE =================
-# CATATAN PENTING: kalau daftar ini diubah, samain juga LEVELS di web/levels.js
-# biar badge yang ditampilin di frontend konsisten sama yang dihitung di sini.
+#level setiap poinnya
 LEVELS = [
     {"name": "Pemula Peduli", "emoji": "🌱", "min_points": 0},
     {"name": "Pemilah Sampah", "emoji": "🗑️", "min_points": 20},
@@ -55,19 +45,11 @@ def get_level(points):
 
 app = Flask(__name__)
 
-# Kalau ALLOWED_ORIGIN diisi (production), CORS dibatesin cuma buat domain itu doang.
-# Kalau kosong (dev lokal), izinin semua origin biar gampang testing.
 if ALLOWED_ORIGIN:
     CORS(app, origins=[ALLOWED_ORIGIN])
 else:
     CORS(app)
 
-# ================= SUPABASE ADMIN CLIENT (OPSIONAL) =================
-# Dipake buat verifikasi token user & nambah poin dari SISI SERVER.
-# Pake service_role key -> PUNYA AKSES PENUH, makanya cuma boleh ada di sini
-# (backend), gak pernah dikirim ke frontend/browser.
-# Kalau env var belum diisi, fitur poin otomatis nonaktif tapi fitur
-# scan/predict inti tetap jalan normal (aman buat siapa aja coba tanpa akun).
 supabase_admin = None
 if SUPABASE_URL and SUPABASE_SERVICE_KEY:
     try:
@@ -81,13 +63,7 @@ else:
 
 
 def get_authenticated_user_id():
-    """
-    Ambil token dari header 'Authorization: Bearer <token>' yang dikirim
-    frontend, terus VERIFIKASI ke server Supabase langsung (bukan percaya
-    mentah-mentah isi token dari client). Kalau gak ada token / token gak
-    valid / expired -> return None (dianggap gak login, request tetep
-    diproses tapi tanpa poin).
-    """
+
     if not supabase_admin:
         return None
 
@@ -107,12 +83,7 @@ def get_authenticated_user_id():
 
 
 def award_points_and_log(user_id, class_name, confidence_pct):
-    """
-    Nambah poin + catet riwayat deteksi - TAPI cuma kalau user gak lagi
-    kena cooldown (belum dapet poin dalam POINTS_COOLDOWN_SECONDS terakhir).
-    Fungsi ini CUMA dipanggil dari server pake service_role key, jadi
-    user gak bisa manggil ini langsung dari browser buat curang.
-    """
+
     try:
         # ================= CEK COOLDOWN =================
         last_detection = (

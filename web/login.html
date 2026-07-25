@@ -7,7 +7,6 @@
   <title>Masuk - EduTrash</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- config.js HARUS dimuat sebelum script utama di bawah -->
   <script src="config.js"></script>
   <style>
     body {
@@ -102,12 +101,10 @@
 <body>
   <div class="auth-box">
     <h2>🌱 EduTrash</h2>
-
     <div class="tabs">
       <button id="tabLogin" class="active">Masuk</button>
       <button id="tabRegister">Daftar</button>
     </div>
-
     <form id="authForm">
       <input type="text" id="fullName" class="field-name" placeholder="Nama lengkap" autocomplete="name">
       <input type="email" id="email" placeholder="Email" required autocomplete="email">
@@ -115,20 +112,10 @@
         minlength="6">
       <button type="submit" id="submitBtn">Masuk</button>
     </form>
-
     <div id="message"></div>
   </div>
 
   <script>
-    // Guard sederhana: kalau config.js belum diisi/belum di-copy, kasih tau jelas
-    if (typeof SUPABASE_URL === "undefined" || SUPABASE_URL.includes("xxxxx")) {
-      document.querySelector(".auth-box").innerHTML =
-        "<p style='color:#f44336'>config.js belum di-setup. Copy config.example.js jadi config.js dan isi kredensial Supabase lu dulu.</p>";
-      throw new Error("Supabase config belum diisi");
-    }
-
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
     const tabLogin = document.getElementById("tabLogin");
     const tabRegister = document.getElementById("tabRegister");
     const fullNameField = document.getElementById("fullName");
@@ -138,33 +125,23 @@
     const messageDiv = document.getElementById("message");
     const authForm = document.getElementById("authForm");
 
-    let mode = "login"; // "login" | "register"
-
-    // Kalau user udah login sebelumnya, langsung lempar ke beranda
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        window.location.href = "beranda.html";
-      }
-    });
+    let mode = "login";
 
     function setMode(newMode) {
       mode = newMode;
       messageDiv.textContent = "";
       messageDiv.className = "";
-
       if (mode === "login") {
         tabLogin.classList.add("active");
         tabRegister.classList.remove("active");
         fullNameField.style.display = "none";
         fullNameField.required = false;
-        passwordField.autocomplete = "current-password";
         submitBtn.textContent = "Masuk";
       } else {
         tabRegister.classList.add("active");
         tabLogin.classList.remove("active");
         fullNameField.style.display = "block";
         fullNameField.required = true;
-        passwordField.autocomplete = "new-password";
         submitBtn.textContent = "Daftar";
       }
     }
@@ -172,18 +149,14 @@
     tabLogin.addEventListener("click", () => setMode("login"));
     tabRegister.addEventListener("click", () => setMode("register"));
 
-    // Kalau dateng dari link "Daftar Sekarang" (login.html?mode=register),
-    // langsung buka di tab Daftar biar gak perlu klik lagi.
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("mode") === "register") {
-      setMode("register");
-    }
+    const keyToUse = typeof SUPABASE_KEY !== "undefined" ? SUPABASE_KEY : SUPABASE_ANON_KEY;
+    const supabase = window.supabase.createClient(SUPABASE_URL, keyToUse);
 
     authForm.addEventListener("submit", async (e) => {
       e.preventDefault();
       submitBtn.disabled = true;
       messageDiv.className = "";
-      messageDiv.textContent = mode === "login" ? "Lagi masuk..." : "Lagi daftar...";
+      messageDiv.textContent = "Memproses...";
 
       const email = emailField.value.trim();
       const password = passwordField.value;
@@ -192,24 +165,22 @@
         if (mode === "register") {
           const fullName = fullNameField.value.trim();
           const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { full_name: fullName } }
+            email, password, options: { data: { full_name: fullName } }
           });
           if (error) throw error;
-
           messageDiv.className = "success";
-          messageDiv.textContent = "Daftar berhasil! Kalau konfirmasi email masih aktif, cek inbox dulu sebelum masuk.";
+          messageDiv.textContent = "Daftar berhasil! Sekarang silakan masuk.";
           setMode("login");
         } else {
           const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) throw error;
 
-          window.location.href = "beranda.html";
+          // LANGSUNG DIARAHKAN KE PROFIL
+          window.location.href = "profil.html";
         }
       } catch (err) {
         messageDiv.className = "error";
-        messageDiv.textContent = err.message || "Terjadi kesalahan, coba lagi.";
+        messageDiv.textContent = err.message || "Terjadi kesalahan.";
       } finally {
         submitBtn.disabled = false;
       }
